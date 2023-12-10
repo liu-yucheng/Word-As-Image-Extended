@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore")
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="code/config/base.yaml")
-    parser.add_argument("--experiment", type=str, default="conformal_0.5_dist_pixel_100_kernel201")
+    parser.add_argument("--experiment", type=str, default="default_exp")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument('--log_dir', metavar='DIR', default="output")
     parser.add_argument('--font', type=str, default="none", help="font name")
