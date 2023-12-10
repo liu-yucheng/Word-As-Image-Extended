@@ -10,18 +10,18 @@ baseline:
   lr_base:
     point: 1
   lr:
-    lr_init: 0.002
-    lr_final: 0.0008
+    lr_init: 0.004
+    lr_final: 0.0016
     lr_delay_mult: 0.1
-    lr_delay_steps: 100
-  num_iter: 250
+    lr_delay_steps: 75
+  num_iter: 150
   render_size: 300
   cut_size: 256
   level_of_cc: 0 # 0 - original number of cc / 1 - recommended / 2 - more control points
   seed: 0
   diffusion:
     model: "runwayml/stable-diffusion-v1-5"
-    timesteps: 1000
+    timesteps: 1500
     guidance_scale: 100
   loss:
     use_sds_loss: true
@@ -30,7 +30,7 @@ baseline:
     conformal:
       use_conformal_loss: true
 
-conformal_0.5_dist_pixel_100_kernel201:
+default_exp:
   parent_config: baseline
   level_of_cc: 0
   loss:
@@ -38,7 +38,7 @@ conformal_0.5_dist_pixel_100_kernel201:
       use_tone_loss: true
       dist_loss_weight: 100
       pixel_dist_kernel_blur: 101
-      pixel_dist_sigma: 30
+      pixel_dist_sigma: 60
     conformal:
       use_conformal_loss: true
       angeles_w: 0.5
