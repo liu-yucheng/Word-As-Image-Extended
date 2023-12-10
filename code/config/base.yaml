@@ -26,18 +26,18 @@ baseline:
   loss:
     use_sds_loss: true
     tone:
-      use_tone_loss: false
+      use_tone_loss: true
     conformal:
-      use_conformal_loss: false
+      use_conformal_loss: true
 
 conformal_0.5_dist_pixel_100_kernel201:
   parent_config: baseline
-  level_of_cc: 1
+  level_of_cc: 0
   loss:
     tone:
       use_tone_loss: true
       dist_loss_weight: 100
-      pixel_dist_kernel_blur: 201
+      pixel_dist_kernel_blur: 101
       pixel_dist_sigma: 30
     conformal:
       use_conformal_loss: true
