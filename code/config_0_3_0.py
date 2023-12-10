@@ -5,14 +5,33 @@ import random
 from easydict import EasyDict as edict
 import numpy.random as npr
 import torch
-from utils_0_2_0 import (
+from utils_0_3_0 import (
     edict_2_dict,
     check_and_create_dir,
     update)
 import wandb
 import warnings
+import re
+import codecs
+import arabic_reshaper
+from bidi.algorithm import get_display
 warnings.filterwarnings("ignore")
 
+
+ESCAPE_SEQUENCE_RE = re.compile(r'''
+    ( \\U........      # 8-digit hex escapes
+    | \\u....          # 4-digit hex escapes
+    | \\x..            # 2-digit hex escapes
+    | \\[0-7]{1,3}     # Octal escapes
+    | \\N\{[^}]+\}     # Unicode characters by name
+    | \\[\\'"abfnrtv]  # Single-character escapes
+    )''', re.UNICODE | re.VERBOSE)
+
+def decode_escapes(s):
+    def decode_match(match):
+        return codecs.decode(match.group(0), 'unicode-escape')
+
+    return ESCAPE_SEQUENCE_RE.sub(decode_match, s)
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -38,13 +57,17 @@ def parse_args():
     cfg.experiment = args.experiment
     cfg.seed = args.seed
     cfg.font = args.font
-    cfg.semantic_concept = bytes(args.semantic_concept, "utf-8").decode("unicode_escape")
-    cfg.word = cfg.semantic_concept if args.word == "none" else bytes(args.word, "utf-8").decode("unicode_escape")
+    cfg.semantic_concept = decode_escapes(args.semantic_concept)
+    cfg.semantic_concept = arabic_reshaper.reshape(cfg.semantic_concept)
+    cfg.semantic_concept = get_display(cfg.semantic_concept)
+    cfg.word = cfg.semantic_concept if args.word == "none" else decode_escapes(args.word)
+    cfg.word = arabic_reshaper.reshape(cfg.word)
+    cfg.word = get_display(cfg.word)
 
     # if " " in cfg.word:
     #   raise ValueError(f'no spaces are allowed')
 
-    cfg.caption = f"a {args.semantic_concept}. {args.prompt_suffix}"
+    cfg.caption = f"{args.semantic_concept}{args.prompt_suffix}"
 
     word_ = cfg.word.replace(' ', '-')
     word_ = word_.replace('\n', '+')
@@ -55,7 +78,7 @@ def parse_args():
     # else:
     #   raise ValueError(f'letter should be in word')
 
-    args.optimized_letter = bytes(cfg.word, "utf-8").decode("unicode_escape")
+    args.optimized_letter = cfg.word
     cfg.optimized_letter = args.optimized_letter
 
     cfg.batch_size = args.batch_size
