@@ -1,0 +1,144 @@
+import argparse
+import yaml
+import random
+import torch
+import wandb
+import warnings
+import re
+import codecs
+import arabic_reshaper
+import os.path as osp
+import numpy.random as npr
+from easydict import EasyDict as edict
+from bidi.algorithm import get_display
+
+from utils_0_5_0 import (
+    edict_2_dict,
+    check_and_create_dir,
+    update
+)
+
+
+warnings.filterwarnings("ignore")
+
+ESCAPE_SEQUENCE_RE = re.compile(r'''
+    ( \\U........      # 8-digit hex escapes
+    | \\u....          # 4-digit hex escapes
+    | \\x..            # 2-digit hex escapes
+    | \\[0-7]{1,3}     # Octal escapes
+    | \\N\{[^}]+\}     # Unicode characters by name
+    | \\[\\'"abfnrtv]  # Single-character escapes
+    )''', re.UNICODE | re.VERBOSE)
+
+def decode_escapes(s):
+    def decode_match(match):
+        return codecs.decode(match.group(0), 'unicode-escape')
+
+    return ESCAPE_SEQUENCE_RE.sub(decode_match, s)
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, default="code/config/base.yaml")
+    parser.add_argument("--experiment", type=str, default="default_exp")
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument('--log_dir', metavar='DIR', default="output")
+    parser.add_argument('--font', type=str, default="none", help="font name")
+    parser.add_argument('--semantic_concept', type=str, help="the semantic concept to insert")
+    parser.add_argument('--word', type=str, default="none", help="the text to work on")
+    parser.add_argument('--prompt_suffix', type=str, default=". minimal flat 2d vectors. high-contrast outline. lineal color. no watermark. trending on artstation.")
+    parser.add_argument('--optimized_letter', type=str, default="none", help="the letter in the word to optimize")
+    parser.add_argument('--batch_size', type=int, default=1)
+    parser.add_argument('--use_wandb', type=int, default=0)
+    parser.add_argument('--wandb_user', type=str, default="none")
+
+    cfg = edict()
+    args = parser.parse_args()
+    with open('TOKEN', 'r') as f:
+        setattr(args, 'token', f.read().replace('\n', ''))
+    cfg.config = args.config
+    cfg.experiment = args.experiment
+    cfg.seed = args.seed
+    cfg.font = args.font
+    cfg.semantic_concept = decode_escapes(args.semantic_concept)
+    cfg.semantic_concept = arabic_reshaper.reshape(cfg.semantic_concept)
+    cfg.semantic_concept = get_display(cfg.semantic_concept)
+    cfg.word = cfg.semantic_concept if args.word == "none" else decode_escapes(args.word)
+    cfg.word = arabic_reshaper.reshape(cfg.word)
+    cfg.word = get_display(cfg.word)
+
+    if " " in cfg.word:
+      raise ValueError(f'no spaces are allowed')
+
+    cfg.caption = f"{args.semantic_concept}{args.prompt_suffix}"
+    word_ = cfg.word.replace(' ', '-')
+    word_ = word_.replace('\n', '+')
+    cfg.log_dir = f"{args.log_dir}/{args.experiment}_{word_}"
+
+    if args.optimized_letter == 'none':
+        cfg.optimized_letter = cfg.word
+    else:
+        cfg.optimized_letter = decode_escapes(args.optimized_letter)
+        cfg.optimized_letter = arabic_reshaper.reshape(cfg.optimized_letter)
+        cfg.optimized_letter = get_display(cfg.optimized_letter)
+
+        if cfg.optimized_letter not in cfg.word:
+            raise ValueError(f'letter should be in word')
+
+    cfg.batch_size = args.batch_size
+    cfg.token = args.token
+    cfg.use_wandb = args.use_wandb
+    cfg.wandb_user = args.wandb_user
+    letter_ = cfg.optimized_letter.replace(' ', '-')
+    letter_ = letter_.replace('\n', '+')
+    cfg.letter = f"{args.font}_{letter_}_scaled"
+    cfg.target = f"code/data/init/{cfg.letter}"
+
+    return cfg
+
+
+def set_config():
+
+    cfg_arg = parse_args()
+    with open(cfg_arg.config, 'r') as f:
+        cfg_full = yaml.load(f, Loader=yaml.FullLoader)
+
+    # recursively traverse parent_config pointers in the config dicts
+    cfg_key = cfg_arg.experiment
+    cfgs = [cfg_arg]
+    while cfg_key:
+        cfgs.append(cfg_full[cfg_key])
+        cfg_key = cfgs[-1].get('parent_config', 'baseline')
+
+    # allowing children configs to override their parents
+    cfg = edict()
+    for options in reversed(cfgs):
+        update(cfg, options)
+    del cfgs
+
+    # set experiment dir
+    letter_ = cfg.letter.replace(' ', '-')
+    letter_ = letter_.replace('\n', '+')
+    signature = f"{letter_}_concept_{cfg.semantic_concept}_seed_{cfg.seed}"
+    cfg.experiment_dir = \
+        osp.join(cfg.log_dir, cfg.font, signature)
+    configfile = osp.join(cfg.experiment_dir, 'config.yaml')
+    print('Config:', cfg)
+
+    # create experiment dir and save config
+    check_and_create_dir(configfile)
+    with open(osp.join(configfile), 'w') as f:
+        yaml.dump(edict_2_dict(cfg), f)
+
+    if cfg.use_wandb:
+        wandb.init(project="Word-As-Image", entity=cfg.wandb_user,
+                   config=cfg, name=f"{signature}", id=wandb.util.generate_id())
+
+    if cfg.seed is not None:
+        random.seed(cfg.seed)
+        npr.seed(cfg.seed)
+        torch.manual_seed(cfg.seed)
+        torch.backends.cudnn.benchmark = False
+    else:
+        assert False
+
+    return cfg
