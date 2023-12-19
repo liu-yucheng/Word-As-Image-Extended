@@ -3,7 +3,8 @@
 - Word as image extended.
 - Extended from [Shiriluz/Word-As-Image](https://github.com/Shiriluz/Word-As-Image).
 - Ported to Windows PCs with NVIDIA GPU(s).
-- Extended caligraphy generation functions.
+- Extended calligraphy generation functions.
+- Supported multiple-line, Unicode text inputs. Line separator: `"\n"`.
 
 # Copyright
 
