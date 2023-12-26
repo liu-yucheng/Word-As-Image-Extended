@@ -111,6 +111,8 @@ def font_string_to_beziers(font, txt, size=60, spacing=1.0, merge=True, target_c
         if merge is True, simply return a list of all bezier curves,
         otherwise return a list of lists with the bezier curves for each glyph'''
 
+    # print(font)
+
     face = ft.Face(font)
     face.set_char_size(64 * size)
     slot = face.glyph
@@ -146,7 +148,7 @@ def font_string_to_beziers(font, txt, size=60, spacing=1.0, merge=True, target_c
             kerning = face.get_kerning(previous, c)
             x += (slot.advance.x + kerning.x) * spacing
             previous = c
-        y += face.height * spacing * 1.5
+        y -= (face.bbox.yMax - face.bbox.yMin) * spacing * 1.5
 
     return beziers
 
